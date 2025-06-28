@@ -13,34 +13,16 @@ async function waitUnlock() {
   }
 }
 
-export async function readShopList() {
-  try {
-    await waitUnlock();
-    await fs.mkdir(dataDir, { recursive: true });
-    const data = await fs.readFile(shopsFilePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (e) {
-    if (e.code === 'ENOENT') return [];
-    console.error('店舗リスト読み込みエラー:', e);
-    return [];
-  }
-}
-
-export async function addShop(shopName) {
+export async function saveTargets(targets) {
   await waitUnlock();
   fileLock = true;
   try {
-    const shops = await readShopList();
-    if (shops.includes(shopName)) {
-      fileLock = false;
-      return false;
-    }
-    shops.push(shopName);
-    await fs.writeFile(shopsFilePath, JSON.stringify(shops, null, 2), 'utf-8');
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.writeFile(targetFilePath, JSON.stringify(targets, null, 2), 'utf-8');
     fileLock = false;
     return true;
   } catch (e) {
-    console.error('店舗リスト書き込みエラー:', e);
+    console.error('KPI目標書き込みエラー:', e);
     fileLock = false;
     return false;
   }
@@ -59,40 +41,37 @@ export async function readTargets() {
   }
 }
 
-export async function saveTargets(targets) {
-  await waitUnlock();
-  fileLock = true;
-  try {
-    await fs.mkdir(dataDir, { recursive: true });
-    await fs.writeFile(targetFilePath, JSON.stringify(targets, null, 2), 'utf-8');
-    fileLock = false;
-    return true;
-  } catch (e) {
-    console.error('KPI目標書き込みエラー:', e);
-    fileLock = false;
-    return false;
-  }
-}
-
 export async function addTargets(shops, date, targetCount, setBy) {
-  const targets = await readTargets();
+  try {
+    const targets = await readTargets();
 
-  for (const shop of shops) {
-    if (!targets[shop]) targets[shop] = [];
-    // 既存の日付重複チェック（同じ日付の目標は上書き）
-    const idx = targets[shop].findIndex(t => t.date === date);
-    const newEntry = {
-      date,
-      target: Number(targetCount),
-      setBy,
-      setAt: new Date().toISOString(),
-    };
-    if (idx !== -1) {
-      targets[shop][idx] = newEntry;
-    } else {
-      targets[shop].push(newEntry);
+    for (const shop of shops) {
+      if (!targets[shop]) targets[shop] = [];
+
+      const idx = targets[shop].findIndex(t => t.date === date);
+      const newEntry = {
+        date,
+        target: Number(targetCount),
+        setBy,
+        setAt: new Date().toISOString(),
+      };
+
+      if (idx !== -1) {
+        targets[shop][idx] = newEntry;
+      } else {
+        targets[shop].push(newEntry);
+      }
     }
-  }
 
-  return await saveTargets(targets);
+    const saved = await saveTargets(targets);
+    if (saved) {
+      return { success: true };
+    } else {
+      return { success: false, reason: 'save_failed' };
+    }
+
+  } catch (e) {
+    console.error('KPI目標登録エラー:', e);
+    return { success: false, reason: 'exception', error: e };
+  }
 }
