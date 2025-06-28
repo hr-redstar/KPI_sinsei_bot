@@ -1,129 +1,71 @@
-import {
-  Events,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-} from 'discord.js';
-
-import { readShopList, addShop } from '../utils/kpiFileUtil.js';
-import { handleKpiSettingModal } from '../commands/kpi_setting.js';
+// events/interactionCreate.js
 
 export default {
-  name: Events.InteractionCreate,
+  name: 'interactionCreate',
   async execute(interaction) {
-    const client = interaction.client;
+    const { client } = interaction;
 
+    // スラッシュコマンド
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       try {
+        await interaction.deferReply({ flags: 64 }); // 応答予約（ephemeral相当）
         await command.execute(interaction);
       } catch (error) {
         console.error(`コマンド実行エラー [${interaction.user.tag}]:`, error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: 'コマンド実行中にエラーが発生しました。',
-            flags: 64,
-          });
+          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: 64 });
         }
       }
       return;
     }
 
+    // モーダルの送信（ボタンから）
     if (interaction.isButton()) {
-      if (interaction.customId === 'kpi_add_shop_button') {
-        if (interaction.replied || interaction.deferred) return;
-
-        const modal = new ModalBuilder()
-          .setCustomId('kpi_add_shop_modal')
-          .setTitle('KPI 店舗名の追加');
-
-        const shopNameInput = new TextInputBuilder()
-          .setCustomId('shopName')
-          .setLabel('追加する店舗名')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-
-        modal.addComponents(new ActionRowBuilder().addComponents(shopNameInput));
-
-        try {
-          await interaction.showModal(modal);
-        } catch (error) {
-          console.error(`KPI 店舗追加モーダル表示エラー [${interaction.user.tag}]:`, error);
-          if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: 'モーダルの表示に失敗しました。', flags: 64 });
-          }
+      const { customId } = interaction;
+      try {
+        if (customId === 'openShopModal') {
+          const modal = client.modals.get('shopModal');
+          if (modal) await interaction.showModal(modal);
+        } else if (customId.startsWith('shopSelect:')) {
+          const handler = client.selects.get('shopTarget');
+          if (handler) await handler(interaction);
         }
-        return;
-      }
-
-      if (interaction.customId === 'kpi_set_target_button') {
-        if (interaction.replied || interaction.deferred) return;
-
-        const shops = await readShopList();
-
-        if (shops.length === 0) {
-          await interaction.reply({ content: '店舗が登録されていません。まず店舗を追加してください。', flags: 64 });
-          return;
+      } catch (error) {
+        console.error('ボタン処理中のエラー:', error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'ボタン処理中にエラーが発生しました。', flags: 64 });
         }
-
-        const selectMenu = new StringSelectMenuBuilder()
-          .setCustomId('kpi_shop_select')
-          .setPlaceholder('店舗を選択してください（複数選択可）')
-          .setMinValues(1)
-          .setMaxValues(shops.length)
-          .addOptions(
-            shops.map(shop => ({
-              label: shop,
-              value: shop,
-            })),
-          );
-
-        const row = new ActionRowBuilder().addComponents(selectMenu);
-
-        await interaction.reply({
-          content: '目標設定のために店舗を選択してください。',
-          components: [row],
-          flags: 64,
-        });
-        return;
       }
       return;
     }
 
+    // モーダル入力送信時
     if (interaction.isModalSubmit()) {
-      if (interaction.customId === 'kpi_add_shop_modal') {
-        if (interaction.replied || interaction.deferred) return;
-
-        const shopName = interaction.fields.getTextInputValue('shopName');
-        const added = await addShop(shopName);
-
-        if (!added) {
-          await interaction.reply({ content: 'その店舗名は既に登録されています。', flags: 64 });
-          return;
+      try {
+        const handler = client.modals.get(interaction.customId);
+        if (handler) await handler(interaction);
+      } catch (error) {
+        console.error('モーダル処理エラー:', error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'モーダル処理中にエラーが発生しました。', flags: 64 });
         }
-        await interaction.reply({ content: `店舗名「${shopName}」を追加しました。`, flags: 64 });
-        return;
       }
-
-      if (interaction.customId === 'kpi_setting_modal') {
-        const handled = await handleKpiSettingModal(interaction);
-        if (handled) return;
-      }
+      return;
     }
 
+    // セレクトメニュー（主に店舗選択）
     if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === 'kpi_shop_select') {
-        const selectedShops = interaction.values;
-
-        await interaction.reply({
-          content: `選択された店舗: ${selectedShops.join(', ')}`,
-          ephemeral: true,
-        });
+      try {
+        const handler = client.selects.get(interaction.customId);
+        if (handler) await handler(interaction);
+      } catch (error) {
+        console.error('セレクトメニューエラー:', error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: '選択メニューの処理中にエラーが発生しました。', flags: 64 });
+        }
       }
     }
   },
 };
-
