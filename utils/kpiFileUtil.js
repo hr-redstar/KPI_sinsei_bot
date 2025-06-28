@@ -5,11 +5,57 @@ const dataDir = path.resolve('./data');
 const shopsFilePath = path.join(dataDir, 'kpi_shops.json');
 const targetFilePath = path.join(dataDir, 'kpi_ninzuu.json');
 
-let fileLock = false; // 簡易ロック
+let fileLock = false;
 
 async function waitUnlock() {
   while (fileLock) {
     await new Promise(resolve => setTimeout(resolve, 50));
+  }
+}
+
+export async function readShopList() {
+  try {
+    await waitUnlock();
+    await fs.mkdir(dataDir, { recursive: true });
+    const data = await fs.readFile(shopsFilePath, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    if (e.code === 'ENOENT') return [];
+    console.error('店舗リスト読み込みエラー:', e);
+    return [];
+  }
+}
+
+export async function addShop(shopName) {
+  await waitUnlock();
+  fileLock = true;
+  try {
+    const shops = await readShopList();
+    if (shops.includes(shopName)) {
+      fileLock = false;
+      return { success: false, reason: 'duplicate' };
+    }
+    shops.push(shopName);
+    await fs.writeFile(shopsFilePath, JSON.stringify(shops, null, 2), 'utf-8');
+    fileLock = false;
+    return { success: true };
+  } catch (e) {
+    console.error('店舗リスト書き込みエラー:', e);
+    fileLock = false;
+    return { success: false, reason: 'exception', error: e };
+  }
+}
+
+export async function readTargets() {
+  try {
+    await waitUnlock();
+    await fs.mkdir(dataDir, { recursive: true });
+    const data = await fs.readFile(targetFilePath, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    if (e.code === 'ENOENT') return {};
+    console.error('KPI目標読み込みエラー:', e);
+    return {};
   }
 }
 
@@ -25,19 +71,6 @@ export async function saveTargets(targets) {
     console.error('KPI目標書き込みエラー:', e);
     fileLock = false;
     return false;
-  }
-}
-
-export async function readTargets() {
-  try {
-    await waitUnlock();
-    await fs.mkdir(dataDir, { recursive: true });
-    const data = await fs.readFile(targetFilePath, 'utf-8');
-    return JSON.parse(data);
-  } catch (e) {
-    if (e.code === 'ENOENT') return {};
-    console.error('KPI目標読み込みエラー:', e);
-    return {};
   }
 }
 
