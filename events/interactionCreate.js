@@ -1,27 +1,23 @@
-// events/interactionCreate.js
-
 export default {
   name: 'interactionCreate',
   async execute(interaction) {
     const { client } = interaction;
 
-    // スラッシュコマンド
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       try {
-        await interaction.deferReply({ flags: 64 }); // 応答予約（ephemeral相当）
+        // deferReplyは外し、コマンド内で返信完結
         await command.execute(interaction);
       } catch (error) {
         console.error(`コマンド実行エラー [${interaction.user.tag}]:`, error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: 64 });
+          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
         }
       }
       return;
     }
 
-    // モーダルの送信（ボタンから）
     if (interaction.isButton()) {
       const { customId } = interaction;
       try {
@@ -35,13 +31,12 @@ export default {
       } catch (error) {
         console.error('ボタン処理中のエラー:', error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'ボタン処理中にエラーが発生しました。', flags: 64 });
+          await interaction.reply({ content: 'ボタン処理中にエラーが発生しました。', ephemeral: true });
         }
       }
       return;
     }
 
-    // モーダル入力送信時
     if (interaction.isModalSubmit()) {
       try {
         const handler = client.modals.get(interaction.customId);
@@ -49,13 +44,12 @@ export default {
       } catch (error) {
         console.error('モーダル処理エラー:', error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'モーダル処理中にエラーが発生しました。', flags: 64 });
+          await interaction.reply({ content: 'モーダル処理中にエラーが発生しました。', ephemeral: true });
         }
       }
       return;
     }
 
-    // セレクトメニュー（主に店舗選択）
     if (interaction.isStringSelectMenu()) {
       try {
         const handler = client.selects.get(interaction.customId);
@@ -63,7 +57,7 @@ export default {
       } catch (error) {
         console.error('セレクトメニューエラー:', error);
         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: '選択メニューの処理中にエラーが発生しました。', flags: 64 });
+          await interaction.reply({ content: '選択メニューの処理中にエラーが発生しました。', ephemeral: true });
         }
       }
     }
