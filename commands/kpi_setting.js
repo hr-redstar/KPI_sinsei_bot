@@ -19,10 +19,9 @@ export async function handleKpiSettingModal(interaction) {
     if (newShopRaw.length > 0) {
       newShops = [...new Set(newShopRaw.split(',').map(s => s.trim()).filter(s => s.length > 0))];
       for (const shop of newShops) {
-        try {
-          await addShop(shop);
-        } catch (e) {
-          console.error(`店舗追加失敗: ${shop}`, e);
+        const result = await addShop(shop);
+        if (!result.success) {
+          console.warn(`⚠️ 店舗追加失敗: ${shop}（理由: ${result.reason || '不明'}）`, result.error || '');
         }
       }
     }
@@ -32,14 +31,18 @@ export async function handleKpiSettingModal(interaction) {
       return true;
     }
 
-    const success = await addTargets(newShops, targetDate, targetCount, interaction.user.tag);
-    if (!success) {
-      await interaction.reply({ content: 'KPI目標の保存に失敗しました。', ephemeral: true });
+    const targetResult = await addTargets(newShops, targetDate, targetCount, interaction.user.tag);
+    if (!targetResult.success) {
+      console.error('📛 KPI目標の保存失敗:', targetResult.reason, targetResult.error || '');
+      await interaction.reply({
+        content: `KPI目標の保存に失敗しました。\n理由: ${targetResult.reason}`,
+        ephemeral: true,
+      });
       return true;
     }
 
     await interaction.reply({
-      content: `以下の店舗に目標を設定しました。\n店舗: ${newShops.join(', ')}\n対象日: ${targetDate}\n目標人数: ${targetCount}`,
+      content: `✅ 以下の店舗に目標を設定しました。\n店舗: ${newShops.join(', ')}\n対象日: ${targetDate}\n目標人数: ${targetCount}`,
       ephemeral: true,
     });
 
@@ -52,4 +55,3 @@ export async function handleKpiSettingModal(interaction) {
     return true;
   }
 }
-
