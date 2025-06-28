@@ -1,7 +1,7 @@
 {
-  "name": "discord-keihi-bot",
+  "name": "discord-KPI-bot",
   "version": "1.0.0",
-  "description": "Discord 経費申請Bot",
+  "description": "Discord KPI申請Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
