@@ -1,14 +1,5 @@
-import { SlashCommandBuilder } from 'discord.js';
-
-export const data = new SlashCommandBuilder()
-  .setName('kpi_仕様書')
-  .setDescription('KPI申請Botの機能と使い方を表示します');
-
-export async function execute(interaction) {
-  try {
-    // deferReply は使わず、直接 reply で返す
-    await interaction.reply({
-      content: `
+await interaction.reply({
+  content: `
 📌 **KPI申請Bot 仕様書（要点）**
 
 🔧 /kpi_設定
@@ -26,13 +17,6 @@ export async function execute(interaction) {
 ✅ Render 対応済み。Persistent Disk によって再起動後もデータ保持
 
 📎 詳細は GitHub または管理者まで。
-      `,
-      ephemeral: true,
-    });
-  } catch (error) {
-    console.error('仕様書コマンド実行エラー:', error);
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '仕様書の表示に失敗しました。', ephemeral: true });
-    }
-  }
-}
+  `,
+  flags: 64, // ephemeral=true の代わりにこちらを推奨
+});
